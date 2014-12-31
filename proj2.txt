@@ -1,0 +1,55 @@
+1)
+6 workers:
+
+time: 46:17.99
+HDFS_BYTES_READ: 3,194,161,488
+mappers: 2882
+reducers: 1178
+2 hours worth of EC2 used
+
+9 workers:
+
+time: 49:18.18
+HDFS_BYTES_READ: 3,194,287,208
+mappers: 4322
+reducers: 1766
+1 hour worth of EC2 used
+
+12 workers:
+
+time: 49:15.98
+HDFS_BYTES_READ: 3,194,416,360
+mappers: 5762
+reducers: 2354
+2 hours worth of EC2 used
+
+
+2) Assuming MB=megabyte=1,000,000 bytes:
+6 workers:
+(2*3194.161488 MB)/(2778 seconds) = 2.300 MB/s
+
+9 workers:
+(2*3194.287208 MB)/(2958 seconds) = 2.160 MB/s
+
+12 workers:
+(2*3194.416360 MB)/(2956 seconds) = 2.161 MB/s
+
+3) Using 9 workers, it took 180 seconds longer than using 6 workers, and the speedup value (OriginalRuntime/ModifiedRuntime) is 2778/2958=0.939.
+Using 12 workers, it took 178 seconds longer than using 6 workers, and the speedup value is 2778/2956=0.940.
+Since using more workers increased processing time, we conclude that Hadoop does a poor job of parallelizing our work. We suspect the overhead involved in using more machines outweighed the benefits from paralellization. This is a case of strong scaling, because the problem size stays constant while the load on each processor varies.
+
+4) For InitMoves and FinalMoves, the mapper generates a maximum of one key-value pair, so a combiner is redundant. For PossibleMoves, the mapper generates unique child-parent pairs, so a combiner is again not helpful. We can add a combiner to the mapper of SolveMoves that looks at all the ByteWritable values of a particular key, and outputs only the best (in terms of win/draw/loss) value, throwing away every other ByteWritable except bytes with zeroes in the left six bits, which are used in the reduce phase to filter for valid parents. This would make processing faster, since less pairs are sent to the reducer, decreasing both the amount of data transferred to the reducers and the amount of work each reducer has to do (less iteration to find the value of the board).
+
+5) Note that the 6 worker cluster used 2 hours of EC2 because we also ran the example beforehand.
+6 workers:
+(2 hours * $0.68/hour * 6 workers)/(2*3.194161488 GB) = $1.28/GB
+
+9 workers:
+(1 hour * $0.68/hour * 9 workers)/(2*3.194287208 GB) = $0.96/GB
+
+12 workers:
+(2 hours * $0.68/hour * 12 workers)/(2*3.194416360 GB) = $2.55/GB
+
+6) ec2-usage returned bogus values. Approximated: 
+(2 hours * $0.68/hour * 6 workers) + (1 hour * $0.68/hour * 9 workers)
++ (2 hours * $0.68/hour * 12 workers) = $30.60
